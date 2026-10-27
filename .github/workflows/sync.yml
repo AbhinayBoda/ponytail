@@ -1,0 +1,73 @@
+name: sync upstreams
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: upstream-sync
+jobs:
+  sync:
+    # The checks run vendored code, so this job only gets a read-only token.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.sync.outputs.changed }}
+      pins: ${{ steps.sync.outputs.pins }}
+      body: ${{ steps.sync.outputs.body }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - id: sync
+        run: |
+          node scripts/sync.mjs > "$RUNNER_TEMP/summary.md"
+          if git diff --quiet upstreams.json; then echo changed=false >> "$GITHUB_OUTPUT"; exit 0; fi
+          status=passed
+          node scripts/check.mjs > "$RUNNER_TEMP/check.txt" 2>&1 || status=FAILED
+          {
+            cat "$RUNNER_TEMP/summary.md"
+            printf '\n## Checks: %s\n\n```text\n' "$status"
+            cat "$RUNNER_TEMP/check.txt"
+            printf '```\n\nReview with CHECKLIST.md, "Every upstream sync". This pull request is never merged automatically.\n'
+          } > "$RUNNER_TEMP/body.md"
+          echo changed=true >> "$GITHUB_OUTPUT"
+          echo "pins=$(base64 -w0 upstreams.json)" >> "$GITHUB_OUTPUT"
+          echo "body=$(base64 -w0 "$RUNNER_TEMP/body.md")" >> "$GITHUB_OUTPUT"
+
+  pull-request:
+    # The only job that can write; it runs our sync script, never vendored code.
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - env:
+          PINS: ${{ needs.sync.outputs.pins }}
+          BODY: ${{ needs.sync.outputs.body }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(gh pr view upstream-sync --json state --jq .state 2>/dev/null)" = OPEN ]; then
+            echo "The upstream-sync pull request is still open; merge or close it to get the next one."
+            exit 0
+          fi
+          echo "$PINS" | base64 -d > upstreams.json
+          node scripts/sync.mjs --restore
+          echo "$BODY" | base64 -d > "$RUNNER_TEMP/body.md"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -C upstream-sync
+          git add -A
+          git commit -m 'Sync upstream skills'
+          git push --force origin upstream-sync
+          gh pr create --head upstream-sync --title 'Sync upstream skills' --body-file "$RUNNER_TEMP/body.md"

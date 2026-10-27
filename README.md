@@ -1,127 +1,77 @@
-# Ponytail — skeleton edition
+# Lean Agent Toolkit
 
-Makes your AI agent think like the laziest senior dev in the room. Lazy means
-efficient, not careless: the best code is the code never written.
+Nineteen agent skills that make a coding agent write less code, spend fewer
+tokens and keep its context clean. They are collected from nine open-source
+projects, trimmed to what does the work, checked, and laid out so the same
+files work in Cursor, Antigravity, Claude Code, Codex and any agent that reads
+`AGENTS.md`. Nothing to install: Markdown plus a few zero-dependency scripts.
 
-This is a sanitized, skimmed-to-the-bone cut of
-[DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) for
-**Cursor** and **Antigravity** (plus anything that reads `AGENTS.md`).
-Everything here is plain markdown. Nothing installs, nothing executes, no
-hooks, no network, no config files, no environment variables.
+- Agents read [AGENTS.md](AGENTS.md): the always-on rules, and which skill fits which job.
+- Humans read [HUMAN.md](HUMAN.md): setup, invoking skills in each tool, updates, tests.
 
-## What changed
+## Set up
 
-Kept — the full behavior of the original:
-
-- **The ruleset** (the 7-rung ladder, the rules, the safety carve-outs), as an
-  always-on rule for Cursor (`.cursor/rules/ponytail.mdc`), Antigravity
-  (`.agents/rules/ponytail.md`), and every `AGENTS.md`-reading agent
-  (`AGENTS.md`).
-- **Five actions**, word-for-word from the original skills: `ponytail`,
-  `ponytail-review`, `ponytail-audit`, `ponytail-debt`, `ponytail-help`. They
-  ship twice — as Cursor slash commands (`.cursor/commands/`) and as
-  Antigravity skills (`.agents/skills/*/SKILL.md`) — and a checker keeps the
-  copies identical.
-
-New in this edition:
-
-- **Three read-only subagents** for Cursor (`.cursor/agents/`):
-  `ponytail-reviewer`, `ponytail-auditor`, `ponytail-gatekeeper`.
-- **A prime checklist** (`CHECKLIST.md`) every change must pass; the
-  gatekeeper subagent enforces it.
-
-Removed — everything that wasn't the behavior:
-
-- All installers and runtime code: lifecycle hooks, plugin manifests for 15+
-  other hosts (Claude Code, Codex, OpenCode, Gemini, Qoder, Devin, OpenClaw,
-  Kiro, Windsurf, Cline, pi, Hermes, …), the MCP server, npm packaging,
-  publish/uninstall scripts, CI workflows.
-- All marketing: badges, logos, sponsor and waitlist banners, star history,
-  benchmark suite and result writeups, translations, examples.
-- `/ponytail-gain` (its scoreboard quoted the deleted benchmarks) and the
-  hook-persisted default-mode machinery — intensity is now set per
-  conversation with `/ponytail lite|full|ultra`, default `full`.
-
-## How to set up (no installation)
-
-One link:
-**<https://github.com/AbhinayBoda/ponytail/tree/cursor/ponytail-skeleton-bc73>**
-
-From the root of any workspace, copy four paths out of it:
+From the root of any project:
 
 ```bash
-git clone --depth 1 --branch cursor/ponytail-skeleton-bc73 https://github.com/AbhinayBoda/ponytail /tmp/ponytail \
-  && cp -r /tmp/ponytail/.cursor /tmp/ponytail/.agents /tmp/ponytail/AGENTS.md /tmp/ponytail/CHECKLIST.md . \
-  && rm -rf /tmp/ponytail
+git clone --depth 1 --branch cursor/agent-toolkit-monorepo-bc73 https://github.com/AbhinayBoda/ponytail /tmp/toolkit \
+  && cp -r /tmp/toolkit/.agents /tmp/toolkit/AGENTS.md . \
+  && mkdir -p .cursor && cp -r /tmp/toolkit/.cursor/agents .cursor/ \
+  && rm -rf /tmp/toolkit
 ```
 
-That is the whole setup. Start a new chat and ponytail is active.
+Start a new chat. Already have an `AGENTS.md`, want only some skills, or use
+Claude Code? See [HUMAN.md](HUMAN.md#set-up).
 
-| Your editor | What loads it automatically | What you get |
-|---|---|---|
-| Cursor | `.cursor/rules/` (always-on), `.cursor/commands/`, `.cursor/agents/`, `AGENTS.md` | rule + 5 slash commands + 3 subagents |
-| Antigravity | `.agents/rules/` (always-on), `.agents/skills/`, `AGENTS.md` | rule + 5 skills |
-| Anything else that reads `AGENTS.md` (Codex, Copilot, Zed, Amp, Jules, …) | `AGENTS.md` | the always-on rule |
+## What is inside
 
-Already have an `AGENTS.md`? Skip copying it and paste the ruleset section in
-instead; the `.cursor/` and `.agents/` folders merge cleanly with existing ones.
+Type `/name` in the chat (`$name` in Codex), or just describe the job: agents
+pick skills from their descriptions.
 
-Uninstall = delete the copied files.
+| Skill | What it does | Needs | From |
+|---|---|---|---|
+| `ponytail` | The smallest complete change; always on through `AGENTS.md`. `/ponytail lite`, `full`, `ultra`. | nothing | [ponytail](https://github.com/DietrichGebert/ponytail) |
+| `ponytail-review` | Reviews a change: bugs, security, load, missing tests, speed, what to cut, in plain English. | nothing | [ponytail](https://github.com/DietrichGebert/ponytail) |
+| `ponytail-audit` | The same review for a whole repo, ranked. | nothing | [ponytail](https://github.com/DietrichGebert/ponytail) |
+| `ponytail-debt` | Lists every `shortcut:` comment as a debt ledger. | git | [ponytail](https://github.com/DietrichGebert/ponytail) |
+| `rpi` | Research, design, then implement through local documents, one phase per fresh session. | nothing | [humanlayer/skills](https://github.com/humanlayer/skills) |
+| `learn` | Learning mode: you design, the agent explains concepts and writes the agreed code. | nothing | [vibe-wise](https://github.com/nykooi1/vibe-wise) |
+| `reset` | Backs up and clears the `learn` notes, after a preview and your confirmation. | Python 3 | [vibe-wise](https://github.com/nykooi1/vibe-wise) |
+| `security-audit` | Security guidance, or a full multi-agent audit with verified findings when you ask for one. | Node | [security-audit-skill](https://github.com/cloudflare/security-audit-skill) |
+| `show-me` | Explains the current topic with small diagrams, code-shape sketches and HTML. | nothing | [humanlayer/skills](https://github.com/humanlayer/skills) |
+| `archify` | Interactive HTML diagrams and one-page explainers, validated before delivery. | Node 18+, Chrome | [archify](https://github.com/tt-a1i/archify) |
+| `visual-pr` | Creates or updates a pull request with a visual outline. | `gh` | [humanlayer/skills](https://github.com/humanlayer/skills) |
+| `brag-slim` | A short launch video of your project, with music and share copy. | Node, FFmpeg | [brag](https://github.com/latent-spaces/brag) |
+| `toon` | Encodes JSON records as TOON before they go into a prompt. | Node 22.18+ | [toon](https://github.com/toon-format/toon) |
+| `lean-shell` | Terse command output: snip's filters as habits, no binary needed. | nothing | idea from [snip](https://github.com/edouard-claude/snip) |
+| `fast-browser` | Reads a web page as a numbered table of controls instead of screenshots. | a browser tool | [jev-ultrafast](https://github.com/browser-use/jev-ultrafast) |
+| `improve-claude-md` | Rewrites an instruction file with `<important if>` blocks. | nothing | [humanlayer/skills](https://github.com/humanlayer/skills) |
+| `build-iterated-agentic-loop` | Builds a scheduled coding-agent workflow with its skill, prompt and memory. | nothing | [humanlayer/skills](https://github.com/humanlayer/skills) |
+| `design-control-loop` | Designs an agentic control loop (sensor, controller, actuator) and builds it. | nothing | [humanlayer/skills](https://github.com/humanlayer/skills) |
+| `narrow-react-prop-types` | Narrows React prop types to the code paths that really run. | nothing | [humanlayer/skills](https://github.com/humanlayer/skills) |
 
-## How to use — actions at your disposal
+Cursor users also get four read-only subagents in `.cursor/agents/`:
+`ponytail-reviewer`, `ponytail-auditor`, `security-auditor` and
+`ponytail-gatekeeper`, which checks a change against [CHECKLIST.md](CHECKLIST.md).
 
-The rule is always on; you never have to invoke anything for normal work. The
-actions aim it at a specific job:
+## How the pieces fit
 
-| Action | What it does |
-|--------|--------------|
-| `ponytail` | Lazy mode itself. Set intensity (`lite`/`full`/`ultra`) or turn it `off`. |
-| `ponytail-review` | Reviews the current diff for over-engineering, hands back a delete-list. |
-| `ponytail-audit` | Audits the whole repo for bloat, ranked biggest cut first. |
-| `ponytail-debt` | Harvests deferred `ponytail:` shortcut comments into a ledger. |
-| `ponytail-help` | Quick-reference card for all of the above. |
+Several tools touch the same jobs; [AGENTS.md](AGENTS.md#when-skills-overlap)
+tells the agent which one leads:
 
-| Subagent (Cursor) | What it does |
-|--------|--------------|
-| `ponytail-reviewer` | Diff review in its own context window. Read-only. |
-| `ponytail-auditor` | Repo-wide bloat audit in its own context window. Read-only. |
-| `ponytail-gatekeeper` | Checks the change against `CHECKLIST.md`, pass/fail per item, ship/fix-first verdict. Read-only. |
+- **Diagrams.** `show-me` sketches in the chat, `learn` draws compact text maps
+  without giving away the design, `archify` turns either into an interactive
+  page to keep or share.
+- **Reviews.** `ponytail-review` on every change (security is one of six
+  checks), `security-audit` when you want security depth.
+- **Building.** `learn` decides who designs, `rpi` decides how the work is
+  staged, `ponytail` decides how little code it takes.
+- **Context.** `lean-shell` for command output, `toon` for data, `fast-browser`
+  for web pages, `rpi` for long work split across sessions.
 
-## How to invoke an action in chat
+## Credits
 
-**Cursor** — type the slash command, or just say it in plain words; the agent
-routes to the right action either way:
-
-- `/ponytail-review` — or "review this diff for over-engineering", "what can we delete?"
-- `/ponytail-audit` — or "find bloat in this repo"
-- `/ponytail-debt` — or "what did we defer?", "show the shortcut ledger"
-- `/ponytail ultra` — or "be maximally lazy"; `/ponytail off` — or "stop ponytail" / "normal mode"
-- `/ponytail-help` — or "how do I use ponytail?"
-
-**Cursor subagents** — ask for them by name and the agent delegates:
-"have `ponytail-gatekeeper` check this before I commit",
-"run `ponytail-auditor` on the whole repo",
-"send this diff to `ponytail-reviewer`".
-
-**Antigravity** — the same five actions are skills, auto-discovered from
-`.agents/skills/`. Type the action name as a chat message (`/ponytail-review`)
-or describe the job ("audit this codebase for over-engineering") and the agent
-picks the skill up from its description.
-
-## The prime checklist
-
-[`CHECKLIST.md`](CHECKLIST.md) is the ten-point gate every change must meet:
-understood first, ladder run, no new deps, no unrequested abstraction, root
-cause not symptom, safety intact, corners marked, one runnable check, lean
-output, shortest understood diff. Run it any time with "gatekeeper check" in
-Cursor, or paste it into any review elsewhere.
-
-## Keeping the copies honest
-
-The ruleset lives in three files and each action in two. `node check.js`
-fails if any copy drifts. Only needed when you edit the rule text; normal use
-never runs code.
-
-## License
-
-[MIT](LICENSE), same as the original by Dietrich Gebert.
+Every vendored folder keeps its upstream `LICENSE` (MIT, or Apache-2.0 for
+archify). [upstreams.json](upstreams.json) pins the exact commit each one came
+from, and a daily job proposes updates as pull requests ([HUMAN.md](HUMAN.md#updates)).
+The toolkit's own files are [MIT](LICENSE).

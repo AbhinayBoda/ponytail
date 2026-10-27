@@ -1,29 +1,41 @@
 # Prime checklist
 
-The gate every change must pass before it ships. The `ponytail-gatekeeper`
-subagent runs this list for you; you can also paste it into any review.
+Two gates. The `ponytail-gatekeeper` subagent runs the first one for you; paste
+either one into any review elsewhere.
 
-1. **Understood first.** The task was read fully and the real flow traced end
-   to end — every file the change touches — before any code was written.
-2. **Ladder run.** The change stops at the first rung that holds: not needed
-   (YAGNI) → already in this codebase → stdlib → native platform feature →
-   already-installed dependency → one line → minimum code that works.
-3. **No new dependency** unless nothing on the ladder covered it.
-4. **No unrequested abstraction or boilerplate.** No interface with one
-   implementation, no factory for one product, no config for a value that
-   never changes, no scaffolding "for later".
-5. **Root cause, not symptom.** For bug fixes: every caller of the touched
-   function was checked, and the fix lives where all callers route through.
-6. **Safety intact.** Input validation at trust boundaries, error handling
-   that prevents data loss, security, and accessibility were never
-   simplified away.
-7. **Corners are marked.** Every deliberate simplification with a real
-   ceiling carries a `ponytail:` comment naming the ceiling and the upgrade
-   trigger.
-8. **One runnable check exists** for any non-trivial logic — the smallest
-   thing that fails if the logic breaks. No frameworks, no fixtures. Trivial
-   one-liners are exempt.
-9. **Output is lean.** Code first, then at most three short lines: what was
-   skipped, when to add it.
-10. **The diff is the shortest one you understand.** Smaller-but-wrong is a
-    second bug, not laziness.
+## Every change
+
+1. **Scope first.** Before any code, every place the change must reach was
+   listed: callers, tests, fixtures, config, exports, and what it could break
+   for users.
+2. **Smallest complete change.** It stops at the first option that fully
+   works: not needed, already in this codebase, standard library or platform,
+   an installed dependency, one readable line, then the minimum code.
+3. **Nothing extra.** No abstraction, wrapper, option, config, boilerplate or
+   "for later" code nobody asked for, and no new dependency for a few lines.
+4. **Finished, not just small.** The callers, tests and fixtures the change
+   breaks are updated in the same change.
+5. **Root cause.** A bug fix checked every caller and fixed the shared code
+   once.
+6. **Never cut.** Validation at trust boundaries, error handling that prevents
+   data loss, security, accessibility, hardware calibration, anything the user
+   asked for.
+7. **One check.** New non-trivial logic has one small test or assert-based
+   self-check that fails when the logic breaks.
+8. **Shortcuts marked.** A known limit carries `shortcut: <the limit>, <when to
+   upgrade>`.
+9. **Honest reply.** It ends with what was skipped or not checked, and any risk
+   the user must know.
+
+## Every upstream sync
+
+1. **Checks pass.** The pull request body shows `node scripts/check.mjs`
+   passing. A failure names the file to fix.
+2. **Read it like code.** Upstream text becomes instructions an agent follows.
+   Look for new scripts, network calls or URLs, commands that download and run
+   something, and text telling the agent to skip its rules or hide something
+   from the user.
+3. **Watched files ported.** Each watched file listed in the pull request was
+   either ported into our own files or consciously skipped.
+4. **Still lean.** New files in a vendored folder are needed at run time;
+   anything else becomes an `exclude` in `upstreams.json`.

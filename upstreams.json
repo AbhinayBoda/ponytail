@@ -1,0 +1,105 @@
+{
+  "ponytail": {
+    "repo": "DietrichGebert/ponytail",
+    "commit": "09c434ab73ca43761c5d8b0c5d341926c2fba710",
+    "license": "LICENSE",
+    "copy": {
+      "skills/ponytail": ".agents/skills/ponytail",
+      "skills/ponytail-review": ".agents/skills/ponytail-review",
+      "skills/ponytail-audit": ".agents/skills/ponytail-audit",
+      "skills/ponytail-debt": ".agents/skills/ponytail-debt"
+    },
+    "watch": [
+      "AGENTS.md"
+    ]
+  },
+  "humanlayer-skills": {
+    "repo": "humanlayer/skills",
+    "commit": "653b6411c1f70c275a18e37673b042ff99f67ceb",
+    "license": "LICENSE",
+    "copy": {
+      "plugins/rpi/skills/rpi": ".agents/skills/rpi",
+      "plugins/show-me/skills/show-me": ".agents/skills/show-me",
+      "plugins/visual-pr/skills/visual-pr": ".agents/skills/visual-pr",
+      "plugins/improve-claude-md/skills/improve-claude-md": ".agents/skills/improve-claude-md",
+      "plugins/narrow-react-prop-types/skills/narrow-react-prop-types": ".agents/skills/narrow-react-prop-types",
+      "plugins/build-iterated-agentic-loop/skills/build-iterated-agentic-loop": ".agents/skills/build-iterated-agentic-loop",
+      "plugins/design-control-loop/skills/design-control-loop": ".agents/skills/design-control-loop"
+    }
+  },
+  "archify": {
+    "repo": "tt-a1i/archify",
+    "commit": "81c6be8d87090670c45d08a8f97f9d29c5af0bec",
+    "license": "LICENSE",
+    "copy": {
+      "archify": ".agents/skills/archify"
+    },
+    "exclude": [
+      "^archify/examples/.*\\.html$"
+    ]
+  },
+  "brag": {
+    "repo": "latent-spaces/brag",
+    "commit": "669ab9286aa28b6c3ee30e75f181ee74319d012a",
+    "license": "LICENSE",
+    "copy": {
+      "skills/brag-slim": ".agents/skills/brag-slim"
+    }
+  },
+  "toon": {
+    "repo": "toon-format/toon",
+    "commit": "e247c423e0a38bca3477b17fecdf6ef4feeb5584",
+    "license": "LICENSE",
+    "copy": {
+      "packages/toon/src": ".agents/skills/toon/vendor"
+    },
+    "watch": [
+      "README.md"
+    ]
+  },
+  "jev-ultrafast": {
+    "repo": "browser-use/jev-ultrafast",
+    "commit": "1231850a0bf1a0c0341fe408ef1668dbbfdfac46",
+    "license": "LICENSE",
+    "copy": {
+      "jev_ultrafast/snapshot.js": ".agents/skills/fast-browser/vendor"
+    },
+    "watch": [
+      "AGENTS.md",
+      "README.md"
+    ]
+  },
+  "security-audit": {
+    "repo": "cloudflare/security-audit-skill",
+    "commit": "c1c8a8c1471069fb0e188eeaff69b8e8db6564a8",
+    "license": "LICENSE",
+    "copy": {
+      "skills/security-audit": ".agents/skills/security-audit"
+    },
+    "exclude": [
+      "\\.test\\.cjs$"
+    ]
+  },
+  "vibe-wise": {
+    "repo": "nykooi1/vibe-wise",
+    "commit": "eefb53df406ab89e31444684ff32c1df205221f8",
+    "license": "LICENSE",
+    "copy": {
+      "skills/learn": ".agents/skills/learn",
+      "skills/reset": ".agents/skills/reset"
+    },
+    "watch": [
+      "hooks/session_start.py"
+    ]
+  },
+  "snip": {
+    "repo": "edouard-claude/snip",
+    "commit": "19c404389b6cd7a47722a075f95ec389bc6de68d",
+    "license": "LICENSE",
+    "copy": {},
+    "watch": [
+      "filters",
+      "SKILL.md"
+    ]
+  }
+}

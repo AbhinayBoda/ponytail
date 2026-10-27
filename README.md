@@ -15,7 +15,9 @@ From the root of any project:
 
 ```bash
 git clone --depth 1 --branch cursor/agent-toolkit-monorepo-bc73 https://github.com/AbhinayBoda/ponytail /tmp/toolkit \
-  && cp -r /tmp/toolkit/.agents /tmp/toolkit/AGENTS.md . && rm -rf /tmp/toolkit
+  && cp -r /tmp/toolkit/.agents /tmp/toolkit/AGENTS.md . \
+  && mkdir -p .cursor && cp -r /tmp/toolkit/.cursor/agents .cursor/ \
+  && rm -rf /tmp/toolkit
 ```
 
 Start a new chat. Already have an `AGENTS.md`, want only some skills, or use

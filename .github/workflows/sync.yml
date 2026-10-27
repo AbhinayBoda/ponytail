@@ -35,6 +35,12 @@ jobs:
             cat "$RUNNER_TEMP/check.txt"
             printf '```\n\nReview with CHECKLIST.md, "Every upstream sync". This pull request is never merged automatically.\n'
           } > "$RUNNER_TEMP/body.md"
+          if [ "$status" = FAILED ]; then
+            echo changed=false >> "$GITHUB_OUTPUT"
+            echo 'Checks failed; not opening a pull request.'
+            cat "$RUNNER_TEMP/check.txt"
+            exit 1
+          fi
           echo changed=true >> "$GITHUB_OUTPUT"
           echo "pins=$(base64 -w0 upstreams.json)" >> "$GITHUB_OUTPUT"
           echo "body=$(base64 -w0 "$RUNNER_TEMP/body.md")" >> "$GITHUB_OUTPUT"

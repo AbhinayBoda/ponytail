@@ -5,6 +5,7 @@ import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 import { decode } from '../.agents/skills/toon/vendor/index.ts'
 
@@ -135,7 +136,8 @@ await check('No pipe-to-shell installs, keys or tokens, or text telling an agent
 await check('toon: the examples in its SKILL.md decode, its size claim holds, and the bundled CLI round-trips JSON exactly', () => {
   const problems = []
   const doc = read(`${SKILLS}/toon/SKILL.md`)
-  const examples = [...doc.matchAll(/```toon\n([\s\S]*?)```/g)].map(m => m[1].trimEnd())
+  const examples = [...doc.matchAll(/```toon\r?\n([\s\S]*?)```/g)].map(m => m[1].replace(/\r/g, '').trimEnd())
+  if (!examples.length) return ['SKILL.md has no ```toon example']
   for (const example of examples) {
     try { decode(example) } catch (err) { problems.push(`an example does not decode: ${err.message}`) }
   }
@@ -151,40 +153,61 @@ await check('toon: the examples in its SKILL.md decode, its size claim holds, an
   return problems
 })
 
+function findChrome() {
+  if (process.env.CHROME_PATH) return process.env.CHROME_PATH
+  const names = process.platform === 'win32' ? ['chrome', 'msedge'] : ['google-chrome', 'chromium', 'chromium-browser', 'chrome']
+  const lookup = process.platform === 'win32' ? 'where' : 'which'
+  for (const name of names) {
+    try { return execFileSync(lookup, [name], { encoding: 'utf8' }).trim().split(/\r?\n/)[0] } catch {}
+  }
+  return [
+    'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  ].find(p => fs.existsSync(p))
+}
+
 await check('fast-browser: in real Chrome its recipe lists a form\'s controls, fills and submits it, and never lists the password field', async () => {
-  const chrome = process.env.CHROME_PATH || ['google-chrome', 'chromium', 'chromium-browser', 'chrome'].find(bin => {
-    try { return execFileSync('which', [bin], { stdio: 'pipe' }) } catch { return false }
-  })
+  const chrome = findChrome()
   if (!chrome) return 'no Chrome or Chromium on PATH (set CHROME_PATH to run it)'
   const doc = read(`${SKILLS}/fast-browser/SKILL.md`)
-  const [install, readPage] = [...doc.matchAll(/```js\n([\s\S]*?)```/g)].map(m => m[1].trim())
-  const fill = doc.match(/`(\(e => \{ Object\.getOwnPropertyDescriptor[^`]+)`/)[1]
+  const [install, readPage] = [...doc.matchAll(/```js\r?\n([\s\S]*?)```/g)].map(m => m[1].trim())
+  if (!install || !readPage) return ['SKILL.md is missing the two ```js recipe blocks']
+  const fill = doc.match(/`(\(e => \{ Object\.getOwnPropertyDescriptor[^`]+)`/)?.[1]
+  if (!fill) return ['SKILL.md is missing the fill one-liner']
   const snapshot = read(`${SKILLS}/fast-browser/vendor/snapshot.js`).trim()
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fast-browser-'))
   fs.writeFileSync(path.join(dir, 'form.html'), `<!doctype html><title>Flight search</title>
 <form onsubmit="event.preventDefault(); out.textContent = 'Results for ' + to.value">
 <label>From <input id="from" value="Zurich"></label> <label>To <input id="to"></label>
 <label>Password <input type="password" value="hunter2"></label> <button>Search</button></form><p id="out">No search yet</p>`)
-  const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${dir}/profile`, '--no-first-run', 'about:blank']
+  const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${dir}/profile`, '--no-first-run', '--no-default-browser-check', 'about:blank']
   const browser = spawn(chrome, process.getuid?.() === 0 ? ['--no-sandbox', ...args] : args, { stdio: ['ignore', 'ignore', 'pipe'], detached: true })
   try {
     const port = await new Promise((resolve, reject) => {
       let log = ''
       browser.stderr.on('data', d => { log += d; const m = log.match(/DevTools listening on ws:\/\/[^:]+:(\d+)/); if (m) resolve(m[1]) })
+      browser.on('exit', code => reject(new Error(`Chrome exited ${code} before DevTools started`)))
       setTimeout(() => reject(new Error('Chrome did not start within 15 s')), 15000)
     })
     const page = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(t => t.type === 'page')
+    if (!page?.webSocketDebuggerUrl) throw new Error('Chrome started but listed no page')
     const ws = new WebSocket(page.webSocketDebuggerUrl)
     await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject })
     let id = 0
     const waiting = new Map()
     ws.onmessage = e => { const m = JSON.parse(e.data); waiting.get(m.id)?.(m); waiting.delete(m.id) }
     const send = (method, params) => new Promise(resolve => { waiting.set(++id, resolve); ws.send(JSON.stringify({ id, method, params })) })
-    const run = async js => (await send('Runtime.evaluate', { expression: js, returnByValue: true })).result.result.value
+    const run = async js => {
+      const reply = await send('Runtime.evaluate', { expression: js, returnByValue: true })
+      if (!reply?.result?.result) throw new Error(`Chrome evaluate failed: ${JSON.stringify(reply?.result ?? reply).slice(0, 200)}`)
+      return reply.result.result.value
+    }
     const open = async url => { await send('Page.navigate', { url }); await new Promise(r => setTimeout(r, 500)) }
 
     const problems = []
-    await open(`file://${dir}/form.html`)
+    const form = pathToFileURL(path.join(dir, 'form.html')).href
+    await open(form)
     if (!(await run(readPage)).startsWith('NO SNAPSHOT')) problems.push('reading before step 1 should say NO SNAPSHOT')
     await run(install.replace('SNAPSHOT', snapshot))
     const table = await run(readPage)
@@ -195,14 +218,17 @@ await check('fast-browser: in real Chrome its recipe lists a form\'s controls, f
     await run(fill.replace('get(12)', `get(${to})`))
     await run(`window.__jevFast.nodes.get(${search}).click()`)
     if (!(await run(readPage)).includes('Results for London')) problems.push('filling To and clicking Search did not submit the form')
-    await open(`file://${dir}/form.html?again`)
+    await open(`${form}?again`)
     if (!(await run(readPage)).startsWith('NO SNAPSHOT')) problems.push('after a navigation the recipe should ask for step 1 again')
     ws.close()
     return problems
   } finally {
     // Chrome's helper processes keep writing to the profile after the main one exits: stop the whole group.
     const exited = new Promise(resolve => browser.once('exit', resolve))
-    try { process.kill(-browser.pid, 'SIGKILL') } catch { browser.kill('SIGKILL') }
+    try {
+      if (process.platform === 'win32') execFileSync('taskkill', ['/PID', String(browser.pid), '/T', '/F'], { stdio: 'ignore' })
+      else process.kill(-browser.pid, 'SIGKILL')
+    } catch { try { browser.kill() } catch {} }
     await Promise.race([exited, new Promise(resolve => setTimeout(resolve, 5000))])
     try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }) } catch {}
   }

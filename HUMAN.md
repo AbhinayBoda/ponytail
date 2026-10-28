@@ -95,12 +95,15 @@ included) and the files we only watch because our own text is based on them.
 
 `.github/workflows/sync.yml` runs every day at 06:17 UTC and on demand:
 
-1. A read-only job asks each upstream for its latest commit. If anything we
-   copy or watch changed, it re-vendors those files and runs every check.
-2. A second job, the only one allowed to write, opens one pull request,
-   `upstream-sync`, with a table of what changed, links to each upstream diff,
-   the check results, and the watched files to port by hand. It never merges,
-   and while that pull request is open later runs leave it alone, so fixes you
+1. A read-only job asks each upstream for its latest commit. For each one
+   that changed, it re-vendors only that upstream's files and runs every check.
+   A failed check skips that upstream and does not open a pull request for it.
+2. A second job, the only one allowed to write, opens one pull request per
+   changed upstream, from branch `upstream/<name>` into `main`. The branch
+   starts from `main` and the diff is only that upstream. The pull request
+   carries the table of what changed, the link to that upstream's diff, the
+   check results, and the watched files to port by hand. It never merges, and
+   while that pull request is open later runs leave it alone, so fixes you
    push to it are safe. Merge or close it to get the next one.
 
 Review that pull request with [CHECKLIST.md](CHECKLIST.md) ("Every upstream
@@ -111,9 +114,9 @@ Actions, General, Workflow permissions). Pull requests opened by a workflow do
 not trigger other workflows, which is why the check results are in the pull
 request body.
 
-By hand: `node scripts/sync.mjs` updates everything, `--check` reports drift,
-`--restore` puts the pinned files back. To add an upstream, add an entry with
-`"commit": ""` and run the sync.
+By hand: `node scripts/sync.mjs` updates everything, `--only <name>` does one
+upstream, `--check` reports drift, `--restore` puts the pinned files back. To
+add an upstream, add an entry with `"commit": ""` and run the sync.
 
 ## Tests
 
@@ -125,7 +128,15 @@ node scripts/sync.mjs --check # every vendored file still matches its pinned ups
 Each check prints one line saying what it guarantees, then `PASS`, `FAIL` or
 `SKIP`; a failure lists what to fix. The browser check skips when Chrome is not
 installed. The run ends with the context cost per turn. `.github/workflows/check.yml`
-runs both commands on every push and pull request.
+runs both commands on every push and pull request, including each `upstream/<name>`
+branch.
+
+`--check` is a byte-for-byte match against the pinned commit. It does not re-run
+the upstream project's test suite or its published benchmarks. Those suites are
+not in this repo: Cloudflare's `*.test.cjs` files are excluded, and archify's
+pre-rendered example HTML is excluded. The behavioral checks that do run are
+the ones in `scripts/check.mjs` for code this repo owns: the toon round-trip and
+the fast-browser form test, which asserts a password field is never listed.
 
 ## Why skills, and not plugins or MCP
 

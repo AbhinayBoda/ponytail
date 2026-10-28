@@ -234,6 +234,16 @@ await check('fast-browser: in real Chrome its recipe lists a form\'s controls, f
   }
 })
 
+await check('sync --only names an upstream that exists, and stops before any fetch when it does not', () => {
+  try {
+    execFileSync(process.execPath, [path.join(root, 'scripts/sync.mjs'), '--only', 'no-such-upstream'], { cwd: root, encoding: 'utf8', stdio: 'pipe' })
+    return ['unknown upstream exited 0']
+  } catch (err) {
+    const out = `${err.stdout ?? ''}${err.stderr ?? ''}`
+    return /unknown upstream no-such-upstream/.test(out) ? [] : [`expected a refusal, got ${JSON.stringify(out.slice(0, 180))}`]
+  }
+})
+
 const tokens = chars => Math.round(chars / 4).toLocaleString('en-US')
 const bodies = skills.map(name => read(`${SKILLS}/${name}/SKILL.md`).length)
 const index = skills.reduce((sum, name) => sum + name.length + (frontmatter(read(`${SKILLS}/${name}/SKILL.md`))?.description?.length ?? 0), 0)

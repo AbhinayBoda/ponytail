@@ -14,8 +14,7 @@ jobs:
       contents: read
     outputs:
       changed: ${{ steps.sync.outputs.changed }}
-      pins: ${{ steps.sync.outputs.pins }}
-      body: ${{ steps.sync.outputs.body }}
+      bundle: ${{ steps.sync.outputs.bundle }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -25,25 +24,45 @@ jobs:
           node-version: 22
       - id: sync
         run: |
-          node scripts/sync.mjs > "$RUNNER_TEMP/summary.md"
-          if git diff --quiet upstreams.json; then echo changed=false >> "$GITHUB_OUTPUT"; exit 0; fi
-          status=passed
-          node scripts/check.mjs > "$RUNNER_TEMP/check.txt" 2>&1 || status=FAILED
-          {
-            cat "$RUNNER_TEMP/summary.md"
-            printf '\n## Checks: %s\n\n```text\n' "$status"
-            cat "$RUNNER_TEMP/check.txt"
-            printf '```\n\nReview with CHECKLIST.md, "Every upstream sync". This pull request is never merged automatically.\n'
-          } > "$RUNNER_TEMP/body.md"
-          if [ "$status" = FAILED ]; then
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sources"
+          ready=0
+          failed=0
+          for name in $(node -e "console.log(Object.keys(JSON.parse(require('fs').readFileSync('upstreams.json','utf8'))).join(' '))"); do
+            git reset --hard
+            git clean -fd
+            node scripts/sync.mjs --only "$name" > "$RUNNER_TEMP/summary.md"
+            dirty=false
+            git diff --quiet || dirty=true
+            [ -z "$(git ls-files --others --exclude-standard)" ] || dirty=true
+            if [ "$dirty" = false ]; then continue; fi
+            if ! node scripts/check.mjs > "$RUNNER_TEMP/check.txt" 2>&1; then
+              failed=1
+              echo "Checks failed for $name; not opening a pull request."
+              cat "$RUNNER_TEMP/check.txt"
+              continue
+            fi
+            mkdir -p "$RUNNER_TEMP/sources/$name"
+            cp upstreams.json "$RUNNER_TEMP/sources/$name/upstreams.json"
+            {
+              cat "$RUNNER_TEMP/summary.md"
+              printf '\n## Checks: passed\n\n```text\n'
+              cat "$RUNNER_TEMP/check.txt"
+              printf '```\n\nReview with CHECKLIST.md, "Every upstream sync". This pull request is never merged automatically.\n'
+            } > "$RUNNER_TEMP/sources/$name/body.md"
+            ready=1
+          done
+          git reset --hard
+          git clean -fd
+          if [ "$ready" = 0 ]; then
             echo changed=false >> "$GITHUB_OUTPUT"
-            echo 'Checks failed; not opening a pull request.'
-            cat "$RUNNER_TEMP/check.txt"
-            exit 1
+            [ "$failed" = 0 ]
+            exit
           fi
+          SRC="$RUNNER_TEMP/sources" OUT="$RUNNER_TEMP/bundle.json" node -e "const fs=require('fs'); const path=require('path'); const dir=process.env.SRC; const out={}; for (const name of fs.readdirSync(dir)) { const p=path.join(dir,name); out[name]={ pins: fs.readFileSync(path.join(p,'upstreams.json')).toString('base64'), body: fs.readFileSync(path.join(p,'body.md')).toString('base64') } } fs.writeFileSync(process.env.OUT, JSON.stringify(out))"
           echo changed=true >> "$GITHUB_OUTPUT"
-          echo "pins=$(base64 -w0 upstreams.json)" >> "$GITHUB_OUTPUT"
-          echo "body=$(base64 -w0 "$RUNNER_TEMP/body.md")" >> "$GITHUB_OUTPUT"
+          echo "bundle=$(base64 -w0 "$RUNNER_TEMP/bundle.json")" >> "$GITHUB_OUTPUT"
+          if [ "$failed" = 1 ]; then echo 'Some upstreams failed checks and were left out.'; fi
 
   pull-request:
     # The only job that can write; it runs our sync script, never vendored code.
@@ -59,21 +78,31 @@ jobs:
         with:
           node-version: 22
       - env:
-          PINS: ${{ needs.sync.outputs.pins }}
-          BODY: ${{ needs.sync.outputs.body }}
+          BUNDLE: ${{ needs.sync.outputs.bundle }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$(gh pr view upstream-sync --json state --jq .state 2>/dev/null)" = OPEN ]; then
-            echo "The upstream-sync pull request is still open; merge or close it to get the next one."
-            exit 0
-          fi
-          echo "$PINS" | base64 -d > upstreams.json
-          node scripts/sync.mjs --restore
-          echo "$BODY" | base64 -d > "$RUNNER_TEMP/body.md"
+          set -euo pipefail
+          git fetch origin main
+          echo "$BUNDLE" | base64 -d > "$RUNNER_TEMP/bundle.json"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git switch -C upstream-sync
-          git add -A
-          git commit -m 'Sync upstream skills'
-          git push --force origin upstream-sync
-          gh pr create --head upstream-sync --title 'Sync upstream skills' --body-file "$RUNNER_TEMP/body.md"
+          for name in $(jq -r 'keys[]' "$RUNNER_TEMP/bundle.json"); do
+            open=$(gh pr list --head "upstream/$name" --base main --state open --json number --jq 'length')
+            if [ "$open" != 0 ]; then
+              echo "upstream/$name already has an open pull request; merge or close it to get the next one."
+              continue
+            fi
+            git switch -C "upstream/$name" origin/main
+            jq -r --arg n "$name" '.[$n].pins' "$RUNNER_TEMP/bundle.json" | base64 -d > upstreams.json
+            node scripts/sync.mjs --restore --only "$name"
+            jq -r --arg n "$name" '.[$n].body' "$RUNNER_TEMP/bundle.json" | base64 -d > "$RUNNER_TEMP/body.md"
+            git add -A
+            git commit -m "Sync $name"
+            if git ls-remote --exit-code --heads origin "upstream/$name" >/dev/null; then
+              git fetch origin "upstream/$name"
+              git push --force-with-lease="refs/heads/upstream/$name:refs/remotes/origin/upstream/$name" origin "HEAD:upstream/$name"
+            else
+              git push -u origin "HEAD:upstream/$name"
+            fi
+            gh pr create --base main --head "upstream/$name" --title "Sync $name" --body-file "$RUNNER_TEMP/body.md"
+          done

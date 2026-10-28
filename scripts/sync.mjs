@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Copies the upstream paths listed in upstreams.json into this repo, byte for byte.
-//   node scripts/sync.mjs            move every upstream to its latest commit, print a Markdown summary
-//   node scripts/sync.mjs --check    fail if any vendored folder differs from its pinned commit
-//   node scripts/sync.mjs --restore  rewrite the vendored folders from their pinned commits
+//   node scripts/sync.mjs                 move every upstream to its latest commit, print a Markdown summary
+//   node scripts/sync.mjs --only <name>   do that for one upstream
+//   node scripts/sync.mjs --check         fail if any vendored folder differs from its pinned commit
+//   node scripts/sync.mjs --restore       rewrite the vendored folders from their pinned commits
 // It only runs git and copies files: it never executes vendored code.
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -13,6 +14,16 @@ const root = path.resolve(import.meta.dirname, '..')
 const manifestFile = path.join(root, 'upstreams.json')
 const upstreams = JSON.parse(fs.readFileSync(manifestFile, 'utf8'))
 const mode = process.argv.includes('--check') ? 'check' : process.argv.includes('--restore') ? 'restore' : 'sync'
+const onlyAt = process.argv.indexOf('--only')
+const only = onlyAt === -1 ? null : process.argv[onlyAt + 1]
+if (onlyAt !== -1 && !only) {
+  console.error('--only needs an upstream name')
+  process.exit(1)
+}
+if (only && !Object.hasOwn(upstreams, only)) {
+  console.error(`unknown upstream ${only}`)
+  process.exit(1)
+}
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 1 << 26 }).trim()
 const url = u => `https://github.com/${u.repo}.git`
 
@@ -65,6 +76,7 @@ function write(u, want) {
 const problems = []
 const rows = []
 for (const [name, u] of Object.entries(upstreams)) {
+  if (only && name !== only) continue
   if (mode !== 'sync') {
     const dir = fetch(u, [u.commit])
     const want = expected(dir, u.commit, u)

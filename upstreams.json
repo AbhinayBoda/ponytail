@@ -29,7 +29,7 @@
   },
   "archify": {
     "repo": "tt-a1i/archify",
-    "commit": "81c6be8d87090670c45d08a8f97f9d29c5af0bec",
+    "commit": "8509a3d63e763b4d454ea9aafa1f939545fcb1ea",
     "license": "LICENSE",
     "copy": {
       "archify": ".agents/skills/archify"

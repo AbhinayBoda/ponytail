@@ -40,7 +40,7 @@
   },
   "brag": {
     "repo": "latent-spaces/brag",
-    "commit": "669ab9286aa28b6c3ee30e75f181ee74319d012a",
+    "commit": "06379432a9243c951dfcc051153be18d2d261044",
     "license": "LICENSE",
     "copy": {
       "skills/brag-slim": ".agents/skills/brag-slim"
